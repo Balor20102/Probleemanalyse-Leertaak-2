@@ -1,11 +1,13 @@
-// main_hcsr04.c
+// main_hcsr04_fixed.c
 #define F_CPU 16000000UL
 #include <avr/io.h>
 #include <util/delay.h>
 #include "uart_helpers.h"
 
-#define TRIG_PIN PD1 // Arduino D9
-#define ECHO_PIN PD2 // Arduino D10
+// PB1 = Arduino D9 (TRIG)
+// PB2 = Arduino D10 (ECHO)
+#define TRIG_PIN PB1
+#define ECHO_PIN PB2
 
 // Timeout counts (prevent blokkering)
 #define TIMEOUT_WAIT_HIGH 30000UL
@@ -13,9 +15,14 @@
 
 void pins_init()
 {
-  DDRD |= (1 << TRIG_PIN);  // TRIG = output
-  DDRD &= ~(1 << ECHO_PIN); // ECHO = input
-  PORTD &= ~(1 << TRIG_PIN);
+  // TRIG = output on PORTB
+  DDRB |= (1 << TRIG_PIN);
+  // ECHO = input on PORTB
+  DDRB &= ~(1 << ECHO_PIN);
+  // Zorg dat TRIG low is
+  PORTB &= ~(1 << TRIG_PIN);
+  // Zorg dat pull-up voor ECHO UIT is (we willen geen interne pull-up)
+  PORTB &= ~(1 << ECHO_PIN);
 }
 
 uint16_t measure_ticks_timeout()
@@ -23,17 +30,17 @@ uint16_t measure_ticks_timeout()
   uint32_t tcount = 0;
 
   // zorg dat trig LOW
-  PORTD &= ~(1 << TRIG_PIN);
+  PORTB &= ~(1 << TRIG_PIN);
   _delay_us(2);
 
   // Trigger 10us pul s
-  PORTD |= (1 << TRIG_PIN);
+  PORTB |= (1 << TRIG_PIN);
   _delay_us(10);
-  PORTD &= ~(1 << TRIG_PIN);
+  PORTB &= ~(1 << TRIG_PIN);
 
   // Wacht op ECHO = HIGH (met timeout)
   uint32_t to = TIMEOUT_WAIT_HIGH;
-  while (!(PIND & (1 << ECHO_PIN)))
+  while (!(PINB & (1 << ECHO_PIN)))
   {
     if (--to == 0)
       return 0xFFFF; // timeout indicator
@@ -46,7 +53,7 @@ uint16_t measure_ticks_timeout()
 
   // Wacht tot ECHO = LOW (met timeout)
   to = TIMEOUT_WAIT_LOW;
-  while (PIND & (1 << ECHO_PIN))
+  while (PINB & (1 << ECHO_PIN))
   {
     if (--to == 0)
     {
@@ -63,10 +70,10 @@ uint16_t measure_ticks_timeout()
 
 int main(void)
 {
-  uart_init(9600);
+  uart_init(9600); // UART gebruikt PD0/PD1 — geen conflict meer
   pins_init();
 
-  uart_println("HC-SR04 bare-metal test");
+  uart_println("HC-SR04 bare-metal test - fixed pins");
 
   while (1)
   {
